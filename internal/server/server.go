@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -13,33 +12,38 @@ import (
 
 	"github.com/vova4o/go_final_project/internal/config"
 	"github.com/vova4o/go_final_project/internal/database"
+	"github.com/vova4o/go_final_project/internal/handlers"
 	"github.com/vova4o/go_final_project/internal/logger"
 )
 
 type ServerConfig struct {
 	Addr    string
 	Handler *gin.Engine
-	DB      *sql.DB
+	Storage handlers.Storager
 	Log     *logger.Logger
 }
 
-var DB *sql.DB
-
-func NewApp(handler *gin.Engine) *ServerConfig {
+func NewApp() *ServerConfig {
 	addr := config.Address()
 
-	var err error
-	DB, err = database.InitDB()
+	storage, err := database.New()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	handler := gin.Default()
+
+	// Create a new instance of your handlers, passing the storage
+	taskHandler := handlers.NewHandler(storage)
+
+	handlers.SetupRoutes(handler, taskHandler)
 
 	log := logger.New()
 
 	return &ServerConfig{
 		Addr:    addr,
 		Handler: handler,
-		DB:      DB,
+		Storage: storage,
 		Log:     log,
 	}
 }
@@ -71,6 +75,8 @@ func (c *ServerConfig) ShutdownServer(srv *http.Server) {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown:", err)
 	}
+
+	c.Storage.CloseDB()
 
 	log.Println("Server exiting")
 }

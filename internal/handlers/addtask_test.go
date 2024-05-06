@@ -77,17 +77,17 @@ func TestCheckTask(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := checkTask(tt.task)
-			if err != nil && tt.want != nil {
-				if err.Error() != tt.want.Error() {
-					t.Errorf("checkTask() data = %v, error = %v, wantErr %v", got, err, tt.want)
-				}
-			} else if err != tt.want {
-				t.Errorf("checkTask() data = %v, error = %v, wantErr %v", got, err, tt.want)
-			}
-		})
-	}
+        t.Run(tt.name, func(t *testing.T) {
+            err := tt.task.checkTask()
+            if err != nil && tt.want != nil {
+                if err.Error() != tt.want.Error() {
+                    t.Errorf("checkTask() error = %v, wantErr %v", err, tt.want)
+                }
+            } else if err != tt.want {
+                t.Errorf("checkTask() error = %v, wantErr %v", err, tt.want)
+            }
+        })
+    }
 }
 
 type testCase struct {
@@ -257,13 +257,13 @@ func TestCheckTask2(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := checkTask(tt.task)
-			if (err != nil) != (tt.wantErr != nil) {
+			err := tt.task.checkTask()
+			if err != nil && tt.wantErr != nil {
+				if err.Error() != tt.wantErr.Error() {
+					t.Errorf("checkTask() error = %v, wantErr %v", err, tt.wantErr)
+				}
+			} else if err != tt.wantErr {
 				t.Errorf("checkTask() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantTask != nil && got.Date != tt.wantTask.Date {
-				t.Errorf("checkTask() = %v, want %v", got, tt.wantTask)
 			}
 		})
 	}

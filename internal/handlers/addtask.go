@@ -9,9 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/labstack/gommon/log" // need to check it
-	"github.com/vova4o/go_final_project/internal/database"
 	"github.com/vova4o/go_final_project/internal/models"
-	"github.com/vova4o/go_final_project/internal/server"
+	"github.com/vova4o/go_final_project/internal/nextdate"
 )
 
 type task struct {
@@ -21,12 +20,17 @@ type task struct {
 	Repeat  string `json:"repeat,omitempty"`
 }
 
-// type taskDB interface {
-// 	AddTask(date, title, comment, repeat string) error
-// }
+type Handler struct {
+	Storage Storager
+}
+
+// NewHandler создаёт новый объект Handler.
+func NewHandler(storage Storager) *Handler {
+	return &Handler{Storage: storage}
+}
 
 // AddTask добавляет задачу в базу данных.
-func AddTask(c *gin.Context) {
+func (h *Handler) AddTask(c *gin.Context) {
 	var err error
 	var t task
 	if err = c.BindJSON(&t); err != nil {
@@ -35,14 +39,14 @@ func AddTask(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	t, err = checkTask(t)
+	err = t.checkTask()
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	id, err := database.AddTask(server.DB, t.Date, t.Title, t.Comment, t.Repeat)
+	id, err := h.Storage.AddTaskDB(t.Date, t.Title, t.Comment, t.Repeat)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -53,7 +57,7 @@ func AddTask(c *gin.Context) {
 }
 
 // UpdateTask обновляет задачу по id в базе данных.
-func UpdateTask(c *gin.Context) {
+func (h *Handler) UpdateTask(c *gin.Context) {
 	var t models.DBTask
 	if err := c.ShouldBindJSON(&t); err != nil {
 		log.Error(err)
@@ -68,7 +72,7 @@ func UpdateTask(c *gin.Context) {
 		Repeat:  t.Repeat,
 	}
 
-	_, err := checkTask(checkT)
+	err := checkT.checkTask()
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -86,14 +90,14 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
-	_, err = database.FindTask(server.DB, t.ID)
+	_, err = h.Storage.FindTask(t.ID)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	err = database.UpdateTask(server.DB, t)
+	err = h.Storage.UpdateTask(t)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -104,23 +108,31 @@ func UpdateTask(c *gin.Context) {
 }
 
 // checkTask проверяет корректность данных задачи и возвращает исправленную задачу и ошибку
-func checkTask(t task) (task, error) {
+func (t *task) checkTask() error {
 	if t.Title == "" {
-		return t, fmt.Errorf("не указан заголовок задачи")
+		return fmt.Errorf("не указан заголовок задачи")
 	}
 	if t.Date == "" {
 		t.Date = time.Now().Format("20060102")
 	}
 	date, err := time.Parse("20060102", t.Date)
 	if err != nil {
-		return t, fmt.Errorf("дата представлена в формате, отличном от 20060102")
+		return fmt.Errorf("дата представлена в формате, отличном от 20060102")
 	}
 
 	if t.Repeat != "" && t.Repeat[0] != 'd' && t.Repeat[0] != 'w' && t.Repeat[0] != 'm' && t.Repeat[0] != 'y' {
-		return t, errors.New("неверное правило повторения")	
+		return errors.New("неверное правило повторения")
 	}
-	if (t.Repeat[0] == 'd' || t.Repeat[0] == 'w' || t.Repeat[0] == 'm') && len(t.Repeat) < 3 {
-		return t, errors.New("неверное правило повторения")
+
+	if len(t.Repeat) > 0 {
+		if t.Repeat[0] != 'd' && t.Repeat[0] != 'w' && t.Repeat[0] != 'm' && t.Repeat[0] != 'y' {
+			return errors.New("неверное правило повторения")
+		}
+		if t.Repeat[0] == 'd' || t.Repeat[0] == 'w' || t.Repeat[0] == 'm' {
+			if len(t.Repeat) < 3 {
+				return errors.New("неверное правило повторения")
+			}
+		}
 	}
 
 	if date.Truncate(24 * time.Hour).Before(time.Now().Truncate(24 * time.Hour)) {
@@ -131,12 +143,12 @@ func checkTask(t task) (task, error) {
 
 	if date.Truncate(24 * time.Hour).Before(time.Now().Truncate(24 * time.Hour)) {
 		if t.Repeat != "" {
-			t.Date, err = database.NextDate(time.Now(), t.Date, t.Repeat)
+			t.Date, err = nextdate.NextDate(time.Now(), t.Date, t.Repeat)
 			if err != nil {
-				return t, fmt.Errorf("ошибка при вычислении следующей даты: %v", err)
+				return fmt.Errorf("ошибка при вычислении следующей даты: %v", err)
 			}
 		}
 	}
 
-	return t, nil
+	return nil
 }

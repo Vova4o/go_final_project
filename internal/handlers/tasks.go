@@ -6,20 +6,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/labstack/gommon/log"
-	"github.com/vova4o/go_final_project/internal/database"
 	"github.com/vova4o/go_final_project/internal/models"
-	"github.com/vova4o/go_final_project/internal/server"
 )
 
 // Tasks возвращает последниее 10 задач из базы данных. Оставил возможность указать смещение, но не использую его.
-func Tasks(c *gin.Context) {
+func (h *Handler) Tasks(c *gin.Context) {
 	search, searchExists := c.GetQuery("search")
 	var tasks []models.DBTask
 	var err error
 
 	if !searchExists {
 		offset := 0
-		tasks, err = database.Tasks(server.DB, offset)
+		tasks, err = h.Storage.Tasks(offset)
 		if err != nil {
 			log.Error(err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -29,7 +27,7 @@ func Tasks(c *gin.Context) {
 		parsedDate, err := time.Parse("02.01.2006", search)
 		if err != nil {
 			// The search query is not a date, so perform a string search.
-			tasks, err = database.SearchTasks(server.DB, search)
+			tasks, err = h.Storage.SearchTasks(search)
 			if err != nil {
 				log.Error(err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -37,7 +35,7 @@ func Tasks(c *gin.Context) {
 			}
 		} else {
 			// The search query is a date.
-			tasks, err = database.TasksByDate(server.DB, parsedDate.Format("20060102"))
+			tasks, err = h.Storage.TasksByDate(parsedDate.Format("20060102"))
 			if err != nil {
 				log.Error(err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -54,9 +52,9 @@ func Tasks(c *gin.Context) {
 }
 
 // FindTask возвращает задачу по id
-func FindTask(c *gin.Context) {
+func (h *Handler) FindTask(c *gin.Context) {
 	search := c.Query("id")
-	task, err := database.FindTask(server.DB, search)
+	task, err := h.Storage.FindTask(search)
 	if err != nil {
 		log.Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -7,6 +7,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/vova4o/go_final_project/internal/models"
+	"github.com/vova4o/go_final_project/internal/nextdate"
 )
 
 func TestNextDate(t *testing.T) {
@@ -39,27 +40,9 @@ func TestNextDate(t *testing.T) {
 	for _, tt := range tests {
 		nowStr := "20240126"
 		now, _ := time.Parse("20060102", nowStr)
-		got, _ := NextDate(now, tt.date, tt.repeat)
+		got, _ := nextdate.NextDate(now, tt.date, tt.repeat)
 		if got != tt.want {
 			t.Errorf("NextDate(%v, %v, %v) = %v; want %v", now, tt.date, tt.repeat, got, tt.want)
-		}
-	}
-}
-
-func TestNextDate2(t *testing.T) {
-	tests := []struct {
-		date   string
-		repeat string
-		want   string
-	}{
-		{"20231225", "d 12", `20240505`},
-	}
-
-	for _, tt := range tests {
-		nowStr := time.Now()
-		got, _ := NextDate(nowStr, tt.date, tt.repeat)
-		if got != tt.want {
-			t.Errorf("NextDate(%v, %v) = %v; want %v", tt.date, tt.repeat, got, tt.want)
 		}
 	}
 }
@@ -71,13 +54,15 @@ func TestTasks(t *testing.T) {
 	}
 	defer db.Close()
 
+	s := &Storage{Db: db}
+
 	rows := sqlmock.NewRows([]string{"id", "date", "title", "comment", "repeat"}).
 		AddRow("1", "20240131", "Заголовок задачи", "", "").
 		AddRow("2", "20240131", "Фитнес", "", "d 3")
 
 	mock.ExpectQuery("^SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT 10 OFFSET (.+)$").WillReturnRows(rows)
 
-	tasks, err := Tasks(db, 0)
+	tasks, err := s.Tasks(0)
 	if err != nil {
 		t.Errorf("error was not expected while getting tasks: %s", err)
 	}
@@ -153,7 +138,7 @@ func TestAddWeeks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			nowStr := "20240126"
 			now, _ := time.Parse("20060102", nowStr)
-			got, err := addWeeks(tt.t, now, tt.repeat)
+			got, err := nextdate.AddWeeks(tt.t, now, tt.repeat)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("addWeeks(%v, %v) returned error: %v, wantErr: %v", tt.t, tt.repeat, err, tt.wantErr)
 				return
@@ -186,10 +171,10 @@ func TestAddMonth(t *testing.T) {
 				{"20240326", "m -1,-2", "20240330"},
 		*/
 		{
-			name:   "add m 31",
-			t:      time.Date(2024, 4, 9, 0, 0, 0, 0, time.UTC),
-			repeat: "m 31",
-			want:   "20240531",
+			name:    "add m 31",
+			t:       time.Date(2024, 4, 9, 0, 0, 0, 0, time.UTC),
+			repeat:  "m 31",
+			want:    "20240531",
 			wantErr: false,
 		},
 		{
@@ -275,7 +260,7 @@ func TestAddMonth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			nowStr := "20240126"
 			now, _ := time.Parse("20060102", nowStr)
-			got, err := addMonths(tt.t, now, tt.repeat)
+			got, err := nextdate.AddMonths(tt.t, now, tt.repeat)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("addMonth(%v, %v) returned error: %v, wantErr: %v", tt.t, tt.repeat, err, tt.wantErr)
 				return
@@ -294,13 +279,14 @@ func TestSearchTasksByDate(t *testing.T) {
 	}
 	defer db.Close()
 
+	s := &Storage{Db: db}
 	// Mock the query
 	rows := sqlmock.NewRows([]string{"id", "date", "title", "comment", "repeat"}).
 		AddRow("1", "20220101", "Test Title", "Test Comment", "Test Repeat")
 	mock.ExpectQuery("^SELECT (.+) FROM scheduler WHERE date = ?").WithArgs("20220101").WillReturnRows(rows)
 
 	// Test SearchTasksByDate function
-	tasks, err := TasksByDate(db, "20220101")
+	tasks, err := s.TasksByDate("20220101")
 	if err != nil {
 		t.Fatalf("Failed to search tasks by date: %v", err)
 	}

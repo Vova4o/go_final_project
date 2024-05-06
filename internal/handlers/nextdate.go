@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/vova4o/go_final_project/internal/database"
+	"github.com/vova4o/go_final_project/internal/nextdate"
 )
 
 // NextDate возвращает следующую дату, когда нужно выполнить задачу в соответствии с заданной датой и периодичностью
@@ -20,7 +20,7 @@ func NextDate(c *gin.Context) {
 		return
 	}
 
-	next, err := database.NextDate(now, date, repeat)
+	next, err := nextdate.NextDate(now, date, repeat)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return

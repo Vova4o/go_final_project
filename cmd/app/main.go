@@ -1,29 +1,16 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-
-	"github.com/vova4o/go_final_project/internal/database"
-	"github.com/vova4o/go_final_project/internal/handlers"
 	"github.com/vova4o/go_final_project/internal/server"
 )
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	// Initialize the server
+	app := server.NewApp()
 
-	mux := gin.Default()
+	// Start the server
+	app.StartServer()
 
-	config := server.NewApp(mux)
-
-	handlers.SetupRoutes(mux)
-
-	mux.Use(config.Log.GinLogger(), gin.Recovery())
-
-	srv := config.NewServer()
-
-	config.StartServer()
-
-	defer database.CloseDB(server.DB)
-
-	config.ShutdownServer(srv)
+	// Wait for an interrupt signal to shutdown the server
+	app.ShutdownServer(app.NewServer())
 }
