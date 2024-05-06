@@ -31,6 +31,10 @@ func NewApp() *ServerConfig {
 		log.Fatal(err)
 	}
 
+	log := logger.New()
+
+	gin.SetMode(gin.ReleaseMode)
+
 	handler := gin.Default()
 
 	// Create a new instance of your handlers, passing the storage
@@ -38,7 +42,7 @@ func NewApp() *ServerConfig {
 
 	handlers.SetupRoutes(handler, taskHandler)
 
-	log := logger.New()
+	handler.Use(log.GinLogger())
 
 	return &ServerConfig{
 		Addr:    addr,
