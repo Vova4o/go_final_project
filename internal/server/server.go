@@ -63,7 +63,7 @@ func (c *ServerConfig) StartServer() {
 	go func() {
 		log.Printf("Starting server on %s\n", c.Addr)
 		if err := c.NewServer().ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			panic(err)
+			log.Fatal(err)
 		}
 	}()
 }
